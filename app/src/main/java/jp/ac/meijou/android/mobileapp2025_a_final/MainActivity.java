@@ -1,5 +1,6 @@
 package jp.ac.meijou.android.mobileapp2025_a_final;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.widget.Button;
 import android.widget.TextView;
@@ -31,8 +32,11 @@ import okhttp3.Response;
 public class MainActivity extends AppCompatActivity {
 
     // 東京駅周辺の緯度・経度を定数として設定
-    private static final String TOKYO_LATITUDE = "35.6895";
-    private static final String TOKYO_LONGITUDE = "139.6917";
+    private static String TOKYO_LATITUDE = "35.6895";
+    private static String TOKYO_LONGITUDE = "139.6917";
+
+    private String latitude = TOKYO_LATITUDE;
+    private String longitude = TOKYO_LONGITUDE;
 
     // api通信の準備
     private final OkHttpClient client = new OkHttpClient();
@@ -55,11 +59,22 @@ public class MainActivity extends AppCompatActivity {
             return insets;
         });
 
+        Intent intent = getIntent();
+        // Intentに "EXTRA_LATITUDE" と "EXTRA_LONGITUDE" のキーが存在するかチェック
+        if (intent.hasExtra("EXTRA_LATITUDE") && intent.hasExtra("EXTRA_LONGITUDE")) {
+            // double型で値を取得し、Stringに変換して変数に格納する
+            // もし何らかの理由で値が取得できなかった場合は、デフォルト値(東京)が使われる
+            double lat = intent.getDoubleExtra("EXTRA_LATITUDE", Double.parseDouble(TOKYO_LATITUDE));
+            double lon = intent.getDoubleExtra("EXTRA_LONGITUDE", Double.parseDouble(TOKYO_LONGITUDE));
+            this.latitude = String.valueOf(lat);
+            this.longitude = String.valueOf(lon);
+        }
+
         // 情報取得ボタンの処理
         binding.buttonSearch.setOnClickListener(view -> {
             ;
             binding.textViewResult.setText("天気情報を取得中...");
-            fetchWeatherData(TOKYO_LATITUDE, TOKYO_LONGITUDE);
+            fetchWeatherData(latitude, longitude);
         });
     }
 
@@ -315,7 +330,7 @@ public class MainActivity extends AppCompatActivity {
                                           int precipitationProbability, double windspeed, int humidity) {
         double score = 100.0; // 満点（100点）から減点していく方式
 
-        // 1. 体感温度による減点 (危険性が高いものを優先)
+        // 体感温度による減点
         if (apparentTemperature > 35) {
             score -= 100.0;
         } else if (apparentTemperature > 32) {
@@ -324,7 +339,7 @@ public class MainActivity extends AppCompatActivity {
             score -= 30.0;
         }
 
-        // 2. 降水確率による減点
+        // 降水確率による減点
         if (precipitationProbability > 70) {
             score -= 80.0;
         } else if (precipitationProbability > 50) {
@@ -333,21 +348,21 @@ public class MainActivity extends AppCompatActivity {
             score -= 20.0;
         }
 
-        // 3. 気温による減点 (快適な範囲から外れるほど減点)
+        // 気温による減点 (快適な範囲から外れるほど減点)
         if (temperature < 5 || temperature > 30) {
-            score -= 20.0; // 寒すぎる or 暑すぎる
+            score -= 20.0;
         } else if (temperature < 10) {
-            score -= 10.0; // やや寒い
+            score -= 10.0;
         }
 
-        // 4. 風速による減点 (km/h)
+        // 風速による減点 (km/h)
         if (windspeed > 30) {
             score -= 30.0;
         } else if (windspeed > 20) {
             score -= 15.0;
         }
 
-        // 5. 湿度による減点
+        // 湿度による減点
         if (humidity > 85) {
             score -= 15.0;
         }
