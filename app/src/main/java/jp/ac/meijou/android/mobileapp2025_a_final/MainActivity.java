@@ -246,9 +246,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * 取得した天気情報を分析し、ベストな運動時間をTextViewに表示するメソッド
-     *
-     * @param meteoData 取得した天気情報
+     * テスト用
      */
     private void analyzeAndDisplayWeather1(MeteoApiResponse meteoData) {
         // 天気情報の解析とメッセージ生成
@@ -372,9 +370,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * 取得した天気情報を分析し、適切なメッセージをTextViewに表示するメソッド
-     *
-     * @param meteoData 取得した天気情報
+     * テスト用
      */
     private void analyzeAndDisplayWeather_test(MeteoApiResponse meteoData) {
         // 天気情報の解析とメッセージ生成
@@ -417,9 +413,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * 天気データに基づいてアドバイスメッセージを生成するメソッド
-     *
-     * @return アドバイスメッセージの文字列
+     * 現在使用されていない
      */
     private String generateWeatherMessage(double temperature, int precipitationProbability,
                                           double apparentTemperature) {
