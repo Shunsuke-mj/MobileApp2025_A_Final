@@ -91,12 +91,6 @@ public class MainActivity extends AppCompatActivity {
      * @param latitude  緯度
      * @param longitude 経度
      */
-    /**
-     * Open-Meteo APIを使用して天気情報を取得するメソッド
-     *
-     * @param latitude  緯度
-     * @param longitude 経度
-     */
     private void fetchWeatherData(String latitude, String longitude) {
         // APIエンドポイントのURLを構築（緯度経度から気温、湿度、降水確率、風速、体感温度を日本時間で2日ぶん取得）
         String url = "https://api.open-meteo.com/v1/forecast" +
@@ -203,7 +197,7 @@ public class MainActivity extends AppCompatActivity {
                 double wind = hourly.windspeed_10m.get(i);
                 int humidity = hourly.relativehumidity_2m.get(i);
                 
-                // 日付を含めた表示形式に変更 (例: 12/09 10:00)
+                // 日付を含めた表示形式 (例: 12/09 10:00)
                 String timeStr = String.format(Locale.JAPAN, "%02d/%02d %02d:%02d",
                         forecastTime.getMonthValue(),
                         forecastTime.getDayOfMonth(),
@@ -218,7 +212,7 @@ public class MainActivity extends AppCompatActivity {
                         wind
                 ));
 
-                // 現在時刻より後のみを対象にスコア計算 (過去のデータはおすすめしない)
+                // 現在時刻より後のみを対象にスコア計算
                  if (forecastTime.isAfter(now)) {
                     // 各要素に基づいてスコアを計算
                     double currentScore = calculateExerciseScore(temp, apparentTemp, precip, wind, humidity);
@@ -237,76 +231,94 @@ public class MainActivity extends AppCompatActivity {
 
         // 1. トップ1の詳細情報を textViewResult に表示
         StringBuilder resultText = new StringBuilder();
-        resultText.append("【おすすめの運動時間】\n");
-        if (!scoreList.isEmpty()) {
-            int bestTimeIndex = scoreList.get(0).index;
-            // おすすめ時間の表示も日付を含める
-            LocalDateTime bestTime = LocalDateTime.parse(hourly.time.get(bestTimeIndex));
-             String timeDisplay = String.format(Locale.JAPAN, "%02d/%02d %02d:%02d",
-                        bestTime.getMonthValue(),
-                        bestTime.getDayOfMonth(),
-                        bestTime.getHour(),
-                        bestTime.getMinute());
-            
-            double temp = hourly.temperature_2m.get(bestTimeIndex);
-            double apparentTemp = hourly.apparent_temperature.get(bestTimeIndex);
-
-            // おすすめ時間の情報をより大きく見やすく表示
-            resultText.append(timeDisplay).append(" に運動しましょう！\n");
-            resultText.append(generateWeatherMessage(temp, hourly.precipitation_probability.get(bestTimeIndex), apparentTemp));
-        } else {
+        resultText.append("【おすすめの運動時間 Top 3】\n");
+        
+        if (scoreList.isEmpty()) {
             resultText.append("この期間、運動に適した時間帯は見つかりませんでした。\n");
+        } else {
+            // 表示する件数をリストのサイズと3の小さい方に合わせる
+            int limit = Math.min(scoreList.size(), 3);
+            for (int i = 0; i < limit; i++) {
+                TimeScore timeScore = scoreList.get(i);
+                int idx = timeScore.index;
+                
+                LocalDateTime timeObj = LocalDateTime.parse(hourly.time.get(idx));
+                String timeDisplay = String.format(Locale.JAPAN, "%02d/%02d %02d:%02d",
+                        timeObj.getMonthValue(),
+                        timeObj.getDayOfMonth(),
+                        timeObj.getHour(),
+                        timeObj.getMinute());
+                        
+                double temp = hourly.temperature_2m.get(idx);
+                double score = timeScore.score;
+
+                // 1位の場合は少し詳細を表示、2,3位はシンプルに
+                resultText.append(String.format(Locale.JAPAN, "No.%d: %s (%.0f点)\n", i + 1, timeDisplay, score));
+                if (i == 0) {
+                     resultText.append("  ").append(generateWeatherMessage(temp, hourly.precipitation_probability.get(idx), hourly.apparent_temperature.get(idx))).append("\n");
+                }
+            }
         }
         binding.textViewResult.setText(resultText.toString());
     }
 
     /**
-     * 天気データに基づいて運動のしやすさをスコアリングするメソッド (新規追加)
+     * 天気データに基づいて運動のしやすさをスコアリングするメソッド
+     * より実態に即したロジックに改善
      * @return 0から100のスコア
      */
     private double calculateExerciseScore(double temperature, double apparentTemperature,
                                           int precipitationProbability, double windspeed, int humidity) {
-        double score = 100.0; // 満点（100点）から減点していく方式
+        
+        double score = 100.0;
 
-        // 体感温度による減点
+        // 1. 降水確率 (最優先)
+        // 運動に雨は大敵。30%を超えると徐々に減点、60%以上は大きく減点
+        if (precipitationProbability >= 80) {
+            score -= 80;
+        } else if (precipitationProbability >= 50) {
+            score -= 50;
+        } else if (precipitationProbability >= 30) {
+            score -= 20;
+        } // 0-20%は減点なし
+
+        // 2. 気温・体感温度 (重要)
+        // 運動に最適なのは 15℃〜25℃ 程度とする
+        // 暑さ対策: 熱中症リスク
         if (apparentTemperature > 35) {
-            score -= 100.0;
-        } else if (apparentTemperature > 32) {
-            score -= 70.0;
+            score -= 100; // 運動危険
+        } else if (apparentTemperature > 31) {
+            score -= 60;  // 厳重警戒
         } else if (apparentTemperature > 28) {
-            score -= 30.0;
+            score -= 30;  // 警戒
         }
-
-        // 降水確率による減点
-        if (precipitationProbability > 70) {
-            score -= 80.0;
-        } else if (precipitationProbability > 50) {
-            score -= 50.0;
-        } else if (precipitationProbability > 30) {
-            score -= 20.0;
-        }
-
-        // 気温による減点 (快適な範囲から外れるほど減点)
-        if (temperature < 5 || temperature > 30) {
-            score -= 20.0;
+        
+        // 寒さ対策
+        if (temperature < 0) {
+            score -= 40;
+        } else if (temperature < 5) {
+            score -= 20;
         } else if (temperature < 10) {
-            score -= 10.0;
+            score -= 10;
         }
 
-        // 風速による減点 (km/h)
-        if (windspeed > 30) {
-            score -= 30.0;
-        } else if (windspeed > 20) {
-            score -= 15.0;
+        // 3. 不快指数 (湿度 + 気温) 簡易判定
+        // 気温が高く湿度も高い場合はさらに減点
+        if (temperature > 25 && humidity > 80) {
+            score -= 15;
+        } else if (temperature > 25 && humidity > 60) {
+            score -= 10;
         }
 
-        // 湿度による減点
-        if (humidity > 85) {
-            score -= 15.0;
+        // 4. 風 (強風は不適)
+        if (windspeed > 25) { // 約90km/hとかではないので、25km/h (約7m/s) 程度を基準に
+             score -= 30;
+        } else if (windspeed > 15) {
+             score -= 10;
         }
 
-        // スコアが0未満にならないようにする
-        return Math.max(0, score);
+        // スコアの範囲を0〜100に収める
+        return Math.max(0, Math.min(100, score));
     }
 
     /**
@@ -317,23 +329,28 @@ public class MainActivity extends AppCompatActivity {
         // 危険度が高いものから順に判定する
 
         // 熱中症・暑さに関する警告
-        if (apparentTemperature > 32) {
-            return "熱中症の危険性が非常に高いです。屋外での運動は避けましょう。";
+        if (apparentTemperature > 31) {
+            return "危険な暑さです。屋外運動は控えましょう。";
         }
-
+        
         // 降水に関する警告
         if (precipitationProbability > 50) {
-            return "雨の可能性が高いです。室内でのトレーニングがおすすめです。";
+            return "雨が降る可能性があります。";
+        }
+
+        // 快適な場合
+        if (temperature >= 15 && temperature <= 25 && precipitationProbability < 30) {
+            return "運動に最適なコンディションです！";
         }
 
         // その他の一般的なアドバイス
-        if (temperature > 30) {
-            return "かなり暑くなります。こまめな水分補給を心がけてください。";
+        if (temperature > 25) {
+            return "少し暑いです。水分補給を忘れずに。";
         }
         if (temperature < 10) {
-            return "肌寒いです。運動の前後で体が冷えないように上着を用意しましょう。";
+            return "肌寒いです。体を冷やさないように。";
         }
 
-        return "運動に適した気候です。良い汗を流しましょう！";
+        return "良い運動日和になりますように。";
     }
 }
