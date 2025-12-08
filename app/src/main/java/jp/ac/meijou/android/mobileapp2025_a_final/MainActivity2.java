@@ -70,10 +70,19 @@ public class MainActivity2 extends AppCompatActivity {
                                 // Logic to handle location object
                                 latitude = location.getLatitude();
                                 longitude = location.getLongitude();
+                                
+                                // Update status text
+                                TextView statusText = findViewById(R.id.textStatus);
+                                if (statusText != null) {
+                                    statusText.setText("位置情報の取得が完了しました！");
+                                    statusText.setTextColor(0xFF4CAF50); // Green color
+                                }
+                                
+                                // Optionally keep updating hidden views if needed for debugging
                                 TextView text4 = findViewById(R.id.textView);
                                 TextView text5 = findViewById(R.id.textView2);
-                                text4.setText(String.valueOf(latitude));
-                                text5.setText(String.valueOf(longitude));
+                                if (text4 != null) text4.setText(String.valueOf(latitude));
+                                if (text5 != null) text5.setText(String.valueOf(longitude));
                             }
                         }
                     });
