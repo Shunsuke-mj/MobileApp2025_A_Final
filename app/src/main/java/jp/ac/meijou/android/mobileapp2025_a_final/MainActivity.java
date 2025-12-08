@@ -10,6 +10,8 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.squareup.moshi.JsonAdapter;
 import com.squareup.moshi.Moshi;
@@ -44,6 +46,7 @@ public class MainActivity extends AppCompatActivity {
     private final Moshi moshi = new Moshi.Builder().build();
 
     private ActivityMainBinding binding;
+    private HourlyForecastAdapter hourlyForecastAdapter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -59,6 +62,11 @@ public class MainActivity extends AppCompatActivity {
             return insets;
         });
 
+        // Add RecyclerView initialization
+        hourlyForecastAdapter = new HourlyForecastAdapter();
+        binding.recyclerViewForecast.setLayoutManager(new LinearLayoutManager(this));
+        binding.recyclerViewForecast.setAdapter(hourlyForecastAdapter);
+
         Intent intent = getIntent();
         // Intentに "EXTRA_LATITUDE" と "EXTRA_LONGITUDE" のキーが存在するかチェック
         if (intent.hasExtra("EXTRA_LATITUDE") && intent.hasExtra("EXTRA_LONGITUDE")) {
@@ -72,7 +80,6 @@ public class MainActivity extends AppCompatActivity {
 
         // 情報取得ボタンの処理
         binding.buttonSearch.setOnClickListener(view -> {
-            ;
             binding.textViewResult.setText("天気情報を取得中...");
             fetchWeatherData(latitude, longitude);
         });
@@ -84,14 +91,20 @@ public class MainActivity extends AppCompatActivity {
      * @param latitude  緯度
      * @param longitude 経度
      */
+    /**
+     * Open-Meteo APIを使用して天気情報を取得するメソッド
+     *
+     * @param latitude  緯度
+     * @param longitude 経度
+     */
     private void fetchWeatherData(String latitude, String longitude) {
-        // APIエンドポイントのURLを構築（緯度経度から気温、湿度、降水確率、風速、体感温度を日本時間で1日ぶん取得）
+        // APIエンドポイントのURLを構築（緯度経度から気温、湿度、降水確率、風速、体感温度を日本時間で2日ぶん取得）
         String url = "https://api.open-meteo.com/v1/forecast" +
                 "?latitude=" + latitude +
                 "&longitude=" + longitude +
                 "&hourly=temperature_2m,relativehumidity_2m,precipitation_probability,windspeed_10m,apparent_temperature" +
                 "&timezone=Asia%2FTokyo" +
-                "&forecast_days=1";
+                "&forecast_days=2";
         Request request = new Request.Builder().url(url).build();
 
         // 非同期でAPIリクエストを実行
@@ -144,7 +157,6 @@ public class MainActivity extends AppCompatActivity {
         // APIからデータが十分に取得できているか確認
         if (hourly == null || hourly.time == null || hourly.time.isEmpty()) {
             binding.textViewResult.setText("表示できる天気情報がありません。");
-            binding.textViewResultTop3.setText(""); // Top3表示もクリア
             return;
         }
 
@@ -168,8 +180,10 @@ public class MainActivity extends AppCompatActivity {
         // 現在の日時を取得
         LocalDateTime now = LocalDateTime.now();
         LocalDate today = now.toLocalDate();
+        LocalDate tomorrow = today.plusDays(1);
 
         List<TimeScore> scoreList = new ArrayList<>();
+        List<HourlyForecastAdapter.HourlyItem> hourlyItems = new ArrayList<>();
 
         // 各時間のデータをチェックし、スコアをリストに追加
         for (int i = 0; i < hourly.time.size(); i++) {
@@ -181,19 +195,40 @@ public class MainActivity extends AppCompatActivity {
                 continue; // パースに失敗した場合はスキップ
             }
 
-            // 現在時刻より後で、かつ今日中の予報のみを対象にする
-            if (forecastTime.isAfter(now) && forecastTime.toLocalDate().isEqual(today)) {
+            // 今日または明日のデータをリスト用に追加
+             if (forecastTime.toLocalDate().isEqual(today) || forecastTime.toLocalDate().isEqual(tomorrow)) {
                 double temp = hourly.temperature_2m.get(i);
                 double apparentTemp = hourly.apparent_temperature.get(i);
                 int precip = hourly.precipitation_probability.get(i);
                 double wind = hourly.windspeed_10m.get(i);
                 int humidity = hourly.relativehumidity_2m.get(i);
+                
+                // 日付を含めた表示形式に変更 (例: 12/09 10:00)
+                String timeStr = String.format(Locale.JAPAN, "%02d/%02d %02d:%02d",
+                        forecastTime.getMonthValue(),
+                        forecastTime.getDayOfMonth(),
+                        forecastTime.getHour(),
+                        forecastTime.getMinute());
+                
+                hourlyItems.add(new HourlyForecastAdapter.HourlyItem(
+                        timeStr, 
+                        temp, 
+                        precip, 
+                        humidity, 
+                        wind
+                ));
 
-                // 各要素に基づいてスコアを計算
-                double currentScore = calculateExerciseScore(temp, apparentTemp, precip, wind, humidity);
-                scoreList.add(new TimeScore(i, currentScore));
-            }
+                // 現在時刻より後のみを対象にスコア計算 (過去のデータはおすすめしない)
+                 if (forecastTime.isAfter(now)) {
+                    // 各要素に基づいてスコアを計算
+                    double currentScore = calculateExerciseScore(temp, apparentTemp, precip, wind, humidity);
+                    scoreList.add(new TimeScore(i, currentScore));
+                 }
+             }
         }
+        
+        // アダプターにデータをセット
+        hourlyForecastAdapter.setHourlyItems(hourlyItems);
 
         // スコアの降順にソート
         Collections.sort(scoreList);
@@ -202,121 +237,26 @@ public class MainActivity extends AppCompatActivity {
 
         // 1. トップ1の詳細情報を textViewResult に表示
         StringBuilder resultText = new StringBuilder();
-        resultText.append("【今日の運動ベストタイム！】\n");
+        resultText.append("【おすすめの運動時間】\n");
         if (!scoreList.isEmpty()) {
             int bestTimeIndex = scoreList.get(0).index;
-            String time = hourly.time.get(bestTimeIndex).substring(11, 16);
+            // おすすめ時間の表示も日付を含める
+            LocalDateTime bestTime = LocalDateTime.parse(hourly.time.get(bestTimeIndex));
+             String timeDisplay = String.format(Locale.JAPAN, "%02d/%02d %02d:%02d",
+                        bestTime.getMonthValue(),
+                        bestTime.getDayOfMonth(),
+                        bestTime.getHour(),
+                        bestTime.getMinute());
+            
             double temp = hourly.temperature_2m.get(bestTimeIndex);
             double apparentTemp = hourly.apparent_temperature.get(bestTimeIndex);
-            int humidity = hourly.relativehumidity_2m.get(bestTimeIndex);
-            int precip = hourly.precipitation_probability.get(bestTimeIndex);
-            double wind = hourly.windspeed_10m.get(bestTimeIndex);
 
-            resultText.append("時間: ").append(time).append("\n");
-            resultText.append("気温: ").append(temp).append(" °C\n");
-            resultText.append("体感温度: ").append(apparentTemp).append(" °C\n");
-            resultText.append("湿度: ").append(humidity).append(" %\n");
-            resultText.append("降水確率: ").append(precip).append(" %\n");
-            resultText.append("風速: ").append(wind).append(" km/h\n");
-            resultText.append("▶︎ ").append(generateWeatherMessage(temp, precip, apparentTemp)).append("\n");
+            // おすすめ時間の情報をより大きく見やすく表示
+            resultText.append(timeDisplay).append(" に運動しましょう！\n");
+            resultText.append(generateWeatherMessage(temp, hourly.precipitation_probability.get(bestTimeIndex), apparentTemp));
         } else {
-            resultText.append("本日、運動に適した時間帯は見つかりませんでした。\n");
+            resultText.append("この期間、運動に適した時間帯は見つかりませんでした。\n");
         }
-        binding.textViewResult.setText(resultText.toString());
-
-        // 2. トップ3のランキングを textViewResultTop3 に表示
-        StringBuilder top3Text = new StringBuilder();
-        top3Text.append("【運動おすすめ時間 Top 3】\n");
-
-        if (scoreList.isEmpty()) {
-            top3Text.append("候補がありませんでした。\n");
-        } else {
-            // 表示する件数をリストのサイズと3の小さい方に合わせる
-            int limit = Math.min(scoreList.size(), 3);
-            for (int i = 0; i < limit; i++) {
-                TimeScore timeScore = scoreList.get(i);
-                String time = hourly.time.get(timeScore.index).substring(11, 16);
-                double score = timeScore.score;
-
-                // String.formatを使ってきれいに整形 (スコアは小数点以下1桁まで)
-                top3Text.append(String.format(Locale.JAPAN, "%d位: %s (スコア: %.1f点)\n", i + 1, time, score));
-            }
-        }
-        binding.textViewResultTop3.setText(top3Text.toString());
-    }
-
-    /**
-     * テスト用
-     */
-    private void analyzeAndDisplayWeather1(MeteoApiResponse meteoData) {
-        // 天気情報の解析とメッセージ生成
-        MeteoApiResponse.Hourly hourly = meteoData.hourly;
-        StringBuilder resultText = new StringBuilder();
-
-        // APIからデータが十分に取得できているか確認
-        if (hourly == null || hourly.time == null || hourly.time.isEmpty()) {
-            binding.textViewResult.setText("表示できる天気情報がありません。");
-            return;
-        }
-
-        // 今日の運動に最適な時間を見つける
-        int bestTimeIndex = -1;
-        double bestScore = -1.0;
-
-        // 現在の日時を取得
-        LocalDateTime now = LocalDateTime.now();
-        LocalDate today = now.toLocalDate();
-
-        // 各時間のデータをチェック
-        for (int i = 0; i < hourly.time.size(); i++) {
-            LocalDateTime forecastTime;
-            try {
-                // APIからの時刻文字列 ("YYYY-MM-DDTHH:MM") をパース
-                forecastTime = LocalDateTime.parse(hourly.time.get(i));
-            } catch (Exception e) {
-                continue; // パースに失敗した場合はスキップ
-            }
-
-            // 現在時刻より後で、かつ今日中の予報のみを対象にする
-            if (forecastTime.isAfter(now) && forecastTime.toLocalDate().isEqual(today)) {
-                double temp = hourly.temperature_2m.get(i);
-                double apparentTemp = hourly.apparent_temperature.get(i);
-                int precip = hourly.precipitation_probability.get(i);
-                double wind = hourly.windspeed_10m.get(i);
-                int humidity = hourly.relativehumidity_2m.get(i);
-
-                // 各要素に基づいてスコアを計算
-                double currentScore = calculateExerciseScore(temp, apparentTemp, precip, wind, humidity);
-
-                // これまでの最高スコアを更新したら、インデックスとスコアを保存
-                if (currentScore > bestScore) {
-                    bestScore = currentScore;
-                    bestTimeIndex = i;
-                }
-            }
-        }
-
-        // 最適な時間が見つかった場合、その情報を表示
-        resultText.append("【今日の運動ベストタイム！】\n");
-        if (bestTimeIndex != -1) {
-            String time = hourly.time.get(bestTimeIndex).substring(11, 16);
-            double temp = hourly.temperature_2m.get(bestTimeIndex);
-            double apparentTemp = hourly.apparent_temperature.get(bestTimeIndex);
-            int humidity = hourly.relativehumidity_2m.get(bestTimeIndex);
-            int precip = hourly.precipitation_probability.get(bestTimeIndex);
-            double wind = hourly.windspeed_10m.get(bestTimeIndex);
-
-            resultText.append("時間: ").append(time).append("\n");
-            resultText.append("気温: ").append(temp).append(" °C\n");
-            resultText.append("体感温度: ").append(apparentTemp).append(" °C\n");
-            resultText.append("湿度: ").append(humidity).append(" %\n");
-            resultText.append("降水確率: ").append(precip).append(" %\n");
-            resultText.append("風速: ").append(wind).append(" km/h\n");
-            resultText.append("▶︎ ").append(generateWeatherMessage(temp, precip, apparentTemp)).append("\n");
-        } else {
-            resultText.append("本日、運動に適した時間帯は見つかりませんでした。\n");
-        }
-
         binding.textViewResult.setText(resultText.toString());
     }
 
@@ -370,49 +310,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * テスト用
-     */
-    private void analyzeAndDisplayWeather_test(MeteoApiResponse meteoData) {
-        // 天気情報の解析とメッセージ生成
-        MeteoApiResponse.Hourly hourly = meteoData.hourly;
-        StringBuilder resultText = new StringBuilder();
-
-        // 1時間後の予報とメッセージ
-        double temp1 = hourly.temperature_2m.get(1);
-        int humidity1 = hourly.relativehumidity_2m.get(1);
-        int precip1 = hourly.precipitation_probability.get(1);
-        double wind1 = hourly.windspeed_10m.get(1);
-        double apparentTemp1 = hourly.apparent_temperature.get(1);
-
-        resultText.append("【1時間後の予報】\n");
-        resultText.append("時間: ").append(hourly.time.get(1).substring(11, 16)).append("\n");
-        resultText.append("気温: ").append(temp1).append(" °C\n");
-        resultText.append("体感温度: ").append(apparentTemp1).append(" °C\n");
-        resultText.append("湿度: ").append(humidity1).append(" %\n");
-        resultText.append("降水確率: ").append(precip1).append(" %\n");
-        resultText.append("風速: ").append(wind1).append(" km/h\n");
-        resultText.append("▶︎ ").append(generateWeatherMessage(temp1, precip1, apparentTemp1)).append("\n\n");
-
-        // 2時間後の予報とメッセージ
-        double temp2 = hourly.temperature_2m.get(2);
-        int humidity2 = hourly.relativehumidity_2m.get(2);
-        int precip2 = hourly.precipitation_probability.get(2);
-        double wind2 = hourly.windspeed_10m.get(2);
-        double apparentTemp2 = hourly.apparent_temperature.get(2);
-
-        resultText.append("【2時間後の予報】\n");
-        resultText.append("時間: ").append(hourly.time.get(2).substring(11, 16)).append("\n");
-        resultText.append("気温: ").append(temp2).append(" °C\n");
-        resultText.append("体感温度: ").append(apparentTemp2).append(" °C\n");
-        resultText.append("湿度: ").append(humidity2).append(" %\n");
-        resultText.append("降水確率: ").append(precip2).append(" %\n");
-        resultText.append("風速: ").append(wind2).append(" km/h\n");
-        resultText.append("▶︎ ").append(generateWeatherMessage(temp2, precip2, apparentTemp2)).append("\n");
-
-        binding.textViewResult.setText(resultText.toString());
-    }
-
-    /**
      * 現在使用されていない
      */
     private String generateWeatherMessage(double temperature, int precipitationProbability,
@@ -428,8 +325,6 @@ public class MainActivity extends AppCompatActivity {
         if (precipitationProbability > 50) {
             return "雨の可能性が高いです。室内でのトレーニングがおすすめです。";
         }
-
-
 
         // その他の一般的なアドバイス
         if (temperature > 30) {
