@@ -58,19 +58,46 @@
                 android:backgroundTint="#2196F3"
                 android:enabled="true"/>
             
-            <!-- Hidden Debug Views to Keep Logic Intact -->
-             <TextView
-                android:id="@+id/textView"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:visibility="gone"/>
+
+            <!-- Postal Code Section -->
             <TextView
-                android:id="@+id/textView2"
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:visibility="gone"/>
+                android:text="または郵便番号から設定"
+                android:textSize="14sp"
+                android:textColor="#757575"
+                android:gravity="center"
+                android:layout_marginTop="24dp"
+                android:layout_marginBottom="8dp"/>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <EditText
+                    android:id="@+id/editTextPostalCode"
+                    android:layout_width="0dp"
+                    android:layout_height="50dp"
+                    android:layout_weight="1"
+                    android:hint="郵便番号 (例: 1000001)"
+                    android:inputType="number"
+                    android:background="@android:drawable/edit_text"
+                    android:paddingStart="8dp"
+                    android:paddingEnd="8dp"
+                    android:layout_marginEnd="8dp"/>
+
+                <Button
+                    android:id="@+id/buttonSearchPostal"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="検索"
+                    style="@style/Widget.MaterialComponents.Button.TextButton"/>
+            </LinearLayout>
 
         </LinearLayout>
+
 
     </androidx.cardview.widget.CardView>
 

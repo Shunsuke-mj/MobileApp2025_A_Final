@@ -83,6 +83,13 @@ public class MainActivity extends AppCompatActivity {
             binding.textViewResult.setText("天気情報を取得中...");
             fetchWeatherData(latitude, longitude);
         });
+
+        // 場所変更ボタンの処理
+        Button changeLocationButton = findViewById(R.id.buttonChangeLocation);
+        changeLocationButton.setOnClickListener(view -> {
+            // MainActivity2に戻る
+            finish();
+        });
     }
 
     /**

@@ -7,7 +7,9 @@ import android.location.Location;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
+import android.widget.EditText; // Added
 import android.widget.TextView;
+import android.widget.Toast; // Added
 
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
@@ -20,12 +22,26 @@ import androidx.core.view.WindowInsetsCompat;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.tasks.OnSuccessListener;
+import com.squareup.moshi.JsonAdapter; // Added
+import com.squareup.moshi.Moshi; // Added
+
+import java.io.IOException; // Added
+
+import okhttp3.Call; // Added
+import okhttp3.Callback; // Added
+import okhttp3.OkHttpClient; // Added
+import okhttp3.Request; // Added
+import okhttp3.Response; // Added
 
 public class MainActivity2 extends AppCompatActivity {
 
     private FusedLocationProviderClient fusedLocationClient;
     private double latitude = 0;    //緯度
     private double longitude = 0;   //経度
+    
+    // API stuff
+    private final OkHttpClient client = new OkHttpClient();
+    private final Moshi moshi = new Moshi.Builder().build();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -58,6 +74,19 @@ public class MainActivity2 extends AppCompatActivity {
             }
         });
 
+        // 郵便番号検索ボタンの設定
+        Button searchPostalButton = findViewById(R.id.buttonSearchPostal);
+        EditText postalInput = findViewById(R.id.editTextPostalCode);
+
+        searchPostalButton.setOnClickListener(v -> {
+            String postalCode = postalInput.getText().toString();
+            if (postalCode.isEmpty()) {
+                Toast.makeText(this, "郵便番号を入力してください", Toast.LENGTH_SHORT).show();
+            } else {
+                searchByPostalCode(postalCode);
+            }
+        });
+
 
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
             fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
@@ -79,10 +108,10 @@ public class MainActivity2 extends AppCompatActivity {
                                 }
                                 
                                 // Optionally keep updating hidden views if needed for debugging
-                                TextView text4 = findViewById(R.id.textView);
-                                TextView text5 = findViewById(R.id.textView2);
-                                if (text4 != null) text4.setText(String.valueOf(latitude));
-                                if (text5 != null) text5.setText(String.valueOf(longitude));
+                                // TextView text4 = findViewById(R.id.textView);
+                                // TextView text5 = findViewById(R.id.textView2);
+                                // if (text4 != null) text4.setText(String.valueOf(latitude));
+                                // if (text5 != null) text5.setText(String.valueOf(longitude));
                             }
                         }
                     });
@@ -90,5 +119,65 @@ public class MainActivity2 extends AppCompatActivity {
             //権限がない場合
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 1000);
         }
+    }
+
+    private void searchByPostalCode(String postalCode) {
+        TextView statusText = findViewById(R.id.textStatus);
+        statusText.setText("郵便番号から検索中...");
+
+        String url = "https://geoapi.heartrails.com/api/json?method=searchByPostal&postal=" + postalCode;
+        Request request = new Request.Builder().url(url).build();
+
+        client.newCall(request).enqueue(new Callback() {
+            @Override
+            public void onFailure(Call call, IOException e) {
+                runOnUiThread(() -> {
+                    Toast.makeText(MainActivity2.this, "通信エラー", Toast.LENGTH_SHORT).show();
+                    statusText.setText("通信に失敗しました");
+                });
+            }
+
+            @Override
+            public void onResponse(Call call, Response response) throws IOException {
+                if (!response.isSuccessful()) {
+                    runOnUiThread(() -> {
+                        Toast.makeText(MainActivity2.this, "検索に失敗しました", Toast.LENGTH_SHORT).show();
+                        statusText.setText("検索に失敗しました");
+                    });
+                    return;
+                }
+
+                String body = response.body().string();
+                JsonAdapter<HeartRailsResponse> adapter = moshi.adapter(HeartRailsResponse.class);
+                try {
+                    HeartRailsResponse hrResponse = adapter.fromJson(body);
+                    if (hrResponse != null && hrResponse.response != null && hrResponse.response.location != null && !hrResponse.response.location.isEmpty()) {
+                        HeartRailsResponse.Location loc = hrResponse.response.location.get(0);
+                        
+                        double lat = Double.parseDouble(loc.y);
+                        double lon = Double.parseDouble(loc.x);
+                        String locationName = loc.prefecture + loc.city + loc.town;
+
+                        runOnUiThread(() -> {
+                            latitude = lat;
+                            longitude = lon;
+                            statusText.setText("位置情報を設定しました:\n" + locationName);
+                            statusText.setTextColor(0xFF4CAF50);
+                            Toast.makeText(MainActivity2.this, "場所を設定しました", Toast.LENGTH_SHORT).show();
+                        });
+
+                    } else {
+                        runOnUiThread(() -> {
+                            statusText.setText("該当する場所が見つかりませんでした");
+                            Toast.makeText(MainActivity2.this, "該当なし", Toast.LENGTH_SHORT).show();
+                        });
+                    }
+                } catch (Exception e) {
+                   runOnUiThread(() -> {
+                       statusText.setText("データの解析に失敗しました");
+                   });
+                }
+            }
+        });
     }
 }
