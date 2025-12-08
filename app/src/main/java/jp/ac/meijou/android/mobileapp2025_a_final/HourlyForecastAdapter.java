@@ -21,13 +21,15 @@ public class HourlyForecastAdapter extends RecyclerView.Adapter<HourlyForecastAd
         public int precipitationProbability;
         public int humidity;
         public double windSpeed;
+        public double score; // Added score field
 
-        public HourlyItem(String time, double temperature, int precipitationProbability, int humidity, double windSpeed) {
+        public HourlyItem(String time, double temperature, int precipitationProbability, int humidity, double windSpeed, double score) {
             this.time = time;
             this.temperature = temperature;
             this.precipitationProbability = precipitationProbability;
             this.humidity = humidity;
             this.windSpeed = windSpeed;
+            this.score = score;
         }
     }
 
@@ -49,6 +51,7 @@ public class HourlyForecastAdapter extends RecyclerView.Adapter<HourlyForecastAd
         HourlyItem item = hourlyItems.get(position);
         
         holder.textTime.setText(item.time);
+        holder.textScore.setText(String.format("%.0f点", item.score)); // Bind score
         holder.textTemp.setText(String.format("%.1f℃", item.temperature));
         holder.textPrecip.setText(String.format("%d%%", item.precipitationProbability));
         holder.textHumidity.setText(String.format("%d%%", item.humidity));
@@ -62,6 +65,7 @@ public class HourlyForecastAdapter extends RecyclerView.Adapter<HourlyForecastAd
 
     static class ViewHolder extends RecyclerView.ViewHolder {
         TextView textTime;
+        TextView textScore; // Added TextView
         TextView textTemp;
         TextView textPrecip;
         TextView textHumidity;
@@ -70,6 +74,7 @@ public class HourlyForecastAdapter extends RecyclerView.Adapter<HourlyForecastAd
         public ViewHolder(@NonNull View itemView) {
             super(itemView);
             textTime = itemView.findViewById(R.id.textTime);
+            textScore = itemView.findViewById(R.id.textScore); // Initialize TextView
             textTemp = itemView.findViewById(R.id.textTemp);
             textPrecip = itemView.findViewById(R.id.textPrecip);
             textHumidity = itemView.findViewById(R.id.textHumidity);

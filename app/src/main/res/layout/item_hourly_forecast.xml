@@ -4,16 +4,27 @@
     android:layout_height="wrap_content"
     android:orientation="horizontal"
     android:padding="8dp"
-    android:weightSum="5">
+    android:weightSum="6">
 
     <TextView
         android:id="@+id/textTime"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_weight="1"
+        android:layout_weight="1.2"
         android:gravity="center"
-        android:text="12:00"
-        android:textSize="14sp" />
+        android:text="12/09 12:00"
+        android:textSize="12sp" />
+
+    <TextView
+        android:id="@+id/textScore"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="0.8"
+        android:gravity="center"
+        android:text="100点"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:textColor="#FF5722" />
 
     <TextView
         android:id="@+id/textTemp"

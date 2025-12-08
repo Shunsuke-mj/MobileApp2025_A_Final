@@ -204,19 +204,21 @@ public class MainActivity extends AppCompatActivity {
                         forecastTime.getHour(),
                         forecastTime.getMinute());
                 
+                // 全ての時間のスコアを計算
+                double itemScore = calculateExerciseScore(temp, apparentTemp, precip, wind, humidity);
+
                 hourlyItems.add(new HourlyForecastAdapter.HourlyItem(
                         timeStr, 
                         temp, 
                         precip, 
                         humidity, 
-                        wind
+                        wind,
+                        itemScore // Pass score to constructor
                 ));
 
-                // 現在時刻より後のみを対象にスコア計算
+                // 現在時刻より後のみを対象にランキング用スコアリストに追加
                  if (forecastTime.isAfter(now)) {
-                    // 各要素に基づいてスコアを計算
-                    double currentScore = calculateExerciseScore(temp, apparentTemp, precip, wind, humidity);
-                    scoreList.add(new TimeScore(i, currentScore));
+                    scoreList.add(new TimeScore(i, itemScore));
                  }
              }
         }
