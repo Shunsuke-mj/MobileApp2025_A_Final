@@ -59,6 +59,16 @@
                 android:enabled="true"/>
             
 
+            <!-- Use Current Location Button -->
+            <Button
+                android:id="@+id/buttonCurrentLocation"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="現在地を使用"
+                android:textColor="#2196F3"
+                android:background="?attr/selectableItemBackground"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_marginTop="8dp"/>
             <!-- Postal Code Section -->
             <TextView
                 android:layout_width="match_parent"

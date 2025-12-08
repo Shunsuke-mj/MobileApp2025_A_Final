@@ -88,38 +88,52 @@ public class MainActivity2 extends AppCompatActivity {
         });
 
 
+
+
+        // 現在地を使用ボタン
+        Button currentLocationButton = findViewById(R.id.buttonCurrentLocation);
+        currentLocationButton.setOnClickListener(v -> {
+            getCurrentLocation();
+        });
+
+
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-            fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
-            fusedLocationClient.getLastLocation()
-                    .addOnSuccessListener(this, new OnSuccessListener<Location>() {
-                        @Override
-                        public void onSuccess(Location location) {
-                            // Got last known location. In some rare situations this can be null.
-                            if (location != null) {
-                                // Logic to handle location object
-                                latitude = location.getLatitude();
-                                longitude = location.getLongitude();
-                                
-                                // Update status text
-                                TextView statusText = findViewById(R.id.textStatus);
-                                if (statusText != null) {
-                                    statusText.setText("位置情報の取得が完了しました！");
-                                    statusText.setTextColor(0xFF4CAF50); // Green color
-                                }
-                                
-                                // Optionally keep updating hidden views if needed for debugging
-                                // TextView text4 = findViewById(R.id.textView);
-                                // TextView text5 = findViewById(R.id.textView2);
-                                // if (text4 != null) text4.setText(String.valueOf(latitude));
-                                // if (text5 != null) text5.setText(String.valueOf(longitude));
-                            }
-                        }
-                    });
+            getCurrentLocation();
         } else {
             //権限がない場合
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 1000);
         }
     }
+
+    private void getCurrentLocation() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 1000);
+            return;
+        }
+
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
+        fusedLocationClient.getLastLocation()
+                .addOnSuccessListener(this, new OnSuccessListener<Location>() {
+                    @Override
+                    public void onSuccess(Location location) {
+                        // Got last known location. In some rare situations this can be null.
+                        if (location != null) {
+                            // Logic to handle location object
+                            latitude = location.getLatitude();
+                            longitude = location.getLongitude();
+                            
+                            // Update status text
+                            TextView statusText = findViewById(R.id.textStatus);
+                            if (statusText != null) {
+                                statusText.setText("現在地を取得しました！");
+                                statusText.setTextColor(0xFF4CAF50); // Green color
+                            }
+                        }
+                    }
+                });
+
+    }
+
 
     private void searchByPostalCode(String postalCode) {
         TextView statusText = findViewById(R.id.textStatus);
