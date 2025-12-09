@@ -31,18 +31,24 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 
+/**
+ * アプリのメイン画面用のアクティビティ
+ * 天気予報の表示や、運動適性スコアの計算と表示を行います。
+ */
 public class MainActivity extends AppCompatActivity {
 
-    // 東京駅周辺の緯度・経度を定数として設定
+    // 東京駅周辺の緯度・経度を定数として設定 (デフォルト位置)
     private static String TOKYO_LATITUDE = "35.6895";
     private static String TOKYO_LONGITUDE = "139.6917";
 
+    // 現在設定されている位置情報
     private String latitude = TOKYO_LATITUDE;
     private String longitude = TOKYO_LONGITUDE;
 
-    // api通信の準備
+    // API通信用クライアント
     private final OkHttpClient client = new OkHttpClient();
 
+    // JSONパース用インスタンス
     private final Moshi moshi = new Moshi.Builder().build();
 
     private ActivityMainBinding binding;
@@ -62,11 +68,12 @@ public class MainActivity extends AppCompatActivity {
             return insets;
         });
 
-        // Add RecyclerView initialization
+        // RecyclerView（天気予報リスト）の初期化と設定
         hourlyForecastAdapter = new HourlyForecastAdapter();
         binding.recyclerViewForecast.setLayoutManager(new LinearLayoutManager(this));
         binding.recyclerViewForecast.setAdapter(hourlyForecastAdapter);
 
+        // 起動時のパラメータ処理（MainActivity2から渡された位置情報の取得）
         Intent intent = getIntent();
         // Intentに "EXTRA_LATITUDE" と "EXTRA_LONGITUDE" のキーが存在するかチェック
         if (intent.hasExtra("EXTRA_LATITUDE") && intent.hasExtra("EXTRA_LONGITUDE")) {
@@ -78,13 +85,13 @@ public class MainActivity extends AppCompatActivity {
             this.longitude = String.valueOf(lon);
         }
 
-        // 情報取得ボタンの処理
+        // 「天気予報を取得」ボタンのクリックリスナー設定
         binding.buttonSearch.setOnClickListener(view -> {
             binding.textViewResult.setText("天気情報を取得中...");
             fetchWeatherData(latitude, longitude);
         });
 
-        // 場所変更ボタンの処理
+        // 「場所を変更」ボタンのクリックリスナー設定
         Button changeLocationButton = findViewById(R.id.buttonChangeLocation);
         changeLocationButton.setOnClickListener(view -> {
             // MainActivity2に戻る
@@ -92,11 +99,13 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+
     /**
      * Open-Meteo APIを使用して天気情報を取得するメソッド
+     * 指定された緯度・経度に基づいて、現在から2日間の時間ごとの天気予報データを取得します。
      *
-     * @param latitude  緯度
-     * @param longitude 経度
+     * @param latitude  緯度 (例: "35.6895")
+     * @param longitude 経度 (例: "139.6917")
      */
     private void fetchWeatherData(String latitude, String longitude) {
         // APIエンドポイントのURLを構築（緯度経度から気温、湿度、降水確率、風速、体感温度を日本時間で2日ぶん取得）
@@ -112,7 +121,7 @@ public class MainActivity extends AppCompatActivity {
         client.newCall(request).enqueue(new Callback() {
             @Override
             public void onFailure(Call call, IOException e) {
-                // 通信失敗時の処理
+                // 通信失敗時の処理：UIスレッドでエラーメッセージを表示
                 runOnUiThread(() -> binding.textViewResult.setText("通信に失敗"));
             }
 
@@ -120,20 +129,20 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onResponse(Call call, Response response) {
                 try (Response r = response) {
-                    // レスポンスが正常でない場合の処理
+                    // レスポンスコードを確認 (200 OK以外はエラー扱い)
                     if (!r.isSuccessful()) {
                         runOnUiThread(() -> binding.textViewResult.setText("正常に取得できず"));
                         return;
                     }
 
 
-                    // レスポンスボディを文字列として取得し、Moshiでパース
+                    // レスポンスボディを文字列として取得し、MoshiでJavaオブジェクトに変換
                     String responseBody = r.body().string();
                     JsonAdapter<MeteoApiResponse> jsonAdapter = moshi.adapter(MeteoApiResponse.class);
                     MeteoApiResponse meteoData = jsonAdapter.fromJson(responseBody);
 
                     if (meteoData != null) {
-                        // UIスレッドで結果を分析・表示
+                        // データ取得成功：UIスレッドで結果を分析・表示
                         runOnUiThread(() -> analyzeAndDisplayWeather(meteoData));
                     }
 
@@ -146,10 +155,15 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+
     /**
-     * 取得した天気情報を分析し、ベストな運動時間をTextViewに表示するメソッド
+     * 取得した天気情報を分析し、運動に適した時間をスコアリングして表示するメソッド
+     * 
+     * 1. 取得データを解析して HourlyItem リストを作成
+     * 2. RecyclerViewのアダプターにデータをセット
+     * 3. スコアが高い順におすすめの時間帯トップ3を表示
      *
-     * @param meteoData 取得した天気情報
+     * @param meteoData 取得した天気情報レスポンス
      */
     private void analyzeAndDisplayWeather(MeteoApiResponse meteoData) {
         // 天気情報の解析とメッセージ生成
@@ -220,7 +234,7 @@ public class MainActivity extends AppCompatActivity {
                         precip, 
                         humidity, 
                         wind,
-                        itemScore // Pass score to constructor
+                        itemScore // スコアをコンストラクタに渡す
                 ));
 
                 // 現在時刻より後のみを対象にランキング用スコアリストに追加
@@ -238,7 +252,7 @@ public class MainActivity extends AppCompatActivity {
 
         // --- 結果の表示 ---
 
-        // 1. トップ1の詳細情報を textViewResult に表示
+        // 1. トップ3の詳細情報を textViewResult に表示
         StringBuilder resultText = new StringBuilder();
         resultText.append("【おすすめの運動時間 Top 3】\n");
         
@@ -271,9 +285,22 @@ public class MainActivity extends AppCompatActivity {
         binding.textViewResult.setText(resultText.toString());
     }
 
+
     /**
      * 天気データに基づいて運動のしやすさをスコアリングするメソッド
-     * より実態に即したロジックに改善
+     * 気温、体感温度、降水確率、風速から算出します。
+     * 
+     * ■ 採点基準 (100点満点からの減点方式)
+     * - 降水確率: 雨は大敵。確率が高いほど大きく減点。
+     * - 気温/体感温度: 暑すぎる(熱中症リスク)、寒すぎる場合は減点。
+     * - 湿度/不快指数: 気温が高く多湿な場合は減点。
+     * - 風速: 強風は減点。
+     *
+     * @param temperature 気温 (℃)
+     * @param apparentTemperature 体感温度 (℃)
+     * @param precipitationProbability 降水確率 (%)
+     * @param windspeed 風速 (km/h)
+     * @param humidity 湿度 (%)
      * @return 0から100のスコア
      */
     private double calculateExerciseScore(double temperature, double apparentTemperature,
@@ -331,7 +358,13 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * 現在使用されていない
+     * 天気条件に基づいて、ユーザーへのワンポイントアドバイスメッセージを生成するメソッド
+     * おすすめ時間の詳細表示に使用されます。
+     *
+     * @param temperature 気温
+     * @param precipitationProbability 降水確率
+     * @param apparentTemperature 体感温度
+     * @return アドバイスメッセージ
      */
     private String generateWeatherMessage(double temperature, int precipitationProbability,
                                           double apparentTemperature) {

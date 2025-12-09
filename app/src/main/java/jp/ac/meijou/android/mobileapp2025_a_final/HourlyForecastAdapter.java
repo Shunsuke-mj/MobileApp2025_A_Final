@@ -11,17 +11,24 @@ import androidx.recyclerview.widget.RecyclerView;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * 1時間ごとの天気予報リストを表示するためのアダプタークラス
+ * RecyclerViewを使用して、各時間の天気情報と運動適性スコアを表示します。
+ */
 public class HourlyForecastAdapter extends RecyclerView.Adapter<HourlyForecastAdapter.ViewHolder> {
 
     private List<HourlyItem> hourlyItems = new ArrayList<>();
 
+    /**
+     * リストの各行に表示するデータモデル
+     */
     public static class HourlyItem {
-        public String time;
-        public double temperature;
-        public int precipitationProbability;
-        public int humidity;
-        public double windSpeed;
-        public double score; // Added score field
+        public String time;                     // 表示時刻
+        public double temperature;              // 気温 (℃)
+        public int precipitationProbability;    // 降水確率 (%)
+        public int humidity;                    // 湿度 (%)
+        public double windSpeed;                // 風速 (km/h)
+        public double score;                    // 運動適性スコア (0-100)
 
         public HourlyItem(String time, double temperature, int precipitationProbability, int humidity, double windSpeed, double score) {
             this.time = time;
@@ -33,6 +40,10 @@ public class HourlyForecastAdapter extends RecyclerView.Adapter<HourlyForecastAd
         }
     }
 
+    /**
+     * 表示するデータリストを更新します
+     * @param items 新しいデータのリスト
+     */
     public void setHourlyItems(List<HourlyItem> items) {
         this.hourlyItems = items;
         notifyDataSetChanged();
@@ -51,7 +62,7 @@ public class HourlyForecastAdapter extends RecyclerView.Adapter<HourlyForecastAd
         HourlyItem item = hourlyItems.get(position);
         
         holder.textTime.setText(item.time);
-        holder.textScore.setText(String.format("%.0f点", item.score)); // Bind score
+        holder.textScore.setText(String.format("%.0f点", item.score)); 
         holder.textTemp.setText(String.format("%.1f℃", item.temperature));
         holder.textPrecip.setText(String.format("%d%%", item.precipitationProbability));
         holder.textHumidity.setText(String.format("%d%%", item.humidity));
@@ -63,9 +74,12 @@ public class HourlyForecastAdapter extends RecyclerView.Adapter<HourlyForecastAd
         return hourlyItems.size();
     }
 
+    /**
+     * リスト項目のビューを保持するホルダー
+     */
     static class ViewHolder extends RecyclerView.ViewHolder {
         TextView textTime;
-        TextView textScore; // Added TextView
+        TextView textScore; 
         TextView textTemp;
         TextView textPrecip;
         TextView textHumidity;
@@ -74,7 +88,7 @@ public class HourlyForecastAdapter extends RecyclerView.Adapter<HourlyForecastAd
         public ViewHolder(@NonNull View itemView) {
             super(itemView);
             textTime = itemView.findViewById(R.id.textTime);
-            textScore = itemView.findViewById(R.id.textScore); // Initialize TextView
+            textScore = itemView.findViewById(R.id.textScore);
             textTemp = itemView.findViewById(R.id.textTemp);
             textPrecip = itemView.findViewById(R.id.textPrecip);
             textHumidity = itemView.findViewById(R.id.textHumidity);
